@@ -115,17 +115,10 @@ class MixtureSameFamily(distributions.Distribution):
         return x
 
 
-def device():
-    return torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-
-def to_device(*args):
-    return [arg.to(device()) for arg in args]
-
-
 def make_trainer(dpath, seed, n_epochs):
     return pl.Trainer(
         logger=CSVLogger(dpath, name="", version=seed),
         callbacks=[
             ModelCheckpoint(monitor="val_loss", filename="best")],
-        max_epochs=n_epochs)
+        max_epochs=n_epochs,
+        accelerator="gpu" if torch.cuda.is_available() else "cpu")
