@@ -11,13 +11,13 @@ def main(config):
     seed = config.__dict__.pop("seed")
     save_file(config, os.path.join(config.save_dpath, "args.pkl"))
     pl.seed_everything(seed)
-    train_loader, test_loader = make_data(config.data_dpath, config.batch_size, config.n_workers)
+    train_loader, val_loader, test_loader = make_data(config.data_dpath, config.batch_size, config.n_workers)
     model = Model(config.input_dim, config.latent_dim, config.n_components, config.lr)
     trainer = make_trainer(config.save_dpath, seed, config.n_epochs)
     if config.is_test:
         trainer.test(model, test_loader)
     else:
-        trainer.fit(model, train_loader)
+        trainer.fit(model, train_loader, val_loader)
 
 
 if __name__ == "__main__":
