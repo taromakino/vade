@@ -4,29 +4,56 @@ import torch.distributions as distributions
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.optim import Adam
-from utils.nn_utils import MLP, MixtureSameFamily
+from utils.nn_utils import MixtureSameFamily
 from utils.stats import diagonal_mvn_log_prob
 
 
-class GaussianMLP(nn.Module):
-    def __init__(self, input_dim, hidden_dims, output_dim):
+class Encoder(nn.Module):
+    def __init__(self, input_dim, latent_dim):
         super().__init__()
-        self.mu_net = MLP(input_dim, hidden_dims, output_dim)
-        self.logvar_net = MLP(input_dim, hidden_dims, output_dim)
+        self.shared_trunk = nn.Sequential(
+            nn.Linear(input_dim, 512),
+            nn.LeakyReLU(inplace=True, negative_slope=.1),
+            nn.Linear(512, 384),
+            nn.LeakyReLU(inplace=True, negative_slope=.1),
+            nn.Dropout(p=0.1),
+            nn.Linear(384, 256),
+            nn.LeakyReLU(inplace=True, negative_slope=.1),
+            nn.Linear(256, 256),
+            nn.LeakyReLU(inplace=True, negative_slope=.1),
+        )
+        self.mu_head = nn.Linear(256, latent_dim)
+        self.logvar_head = nn.Linear(256, latent_dim)
+
+    def forward(self, x):
+        output = x.view(x.shape[0], -1)
+        output = self.shared_trunk(output)
+        return self.mu_head(output), self.logvar_head(output)
 
 
-    def forward(self, *args):
-        return self.mu_net(*args), self.logvar_net(*args)
+def make_decoder(latent_dim, input_dim):
+    return nn.Sequential(
+        nn.Linear(latent_dim, 256),
+        nn.LeakyReLU(inplace=True, negative_slope=.1),
+        nn.Linear(256, 256),
+        nn.LeakyReLU(inplace=True, negative_slope=.1),
+        nn.Linear(256, 384),
+        nn.Dropout(p=0.1),
+        nn.LeakyReLU(inplace=True, negative_slope=.1),
+        nn.Linear(384, 512),
+        nn.LeakyReLU(inplace=True, negative_slope=.1),
+        nn.Linear(512, input_dim),
+    )
 
 
 class Model(pl.LightningModule):
-    def __init__(self, input_dim, hidden_dims, latent_dim, n_components, lr):
+    def __init__(self, input_dim, latent_dim, n_components, lr):
         super().__init__()
-        self.p_x_z_net = MLP(latent_dim, hidden_dims, input_dim)
-        self.q_z_x_net = GaussianMLP(input_dim, hidden_dims, latent_dim)
+        self.p_x_z_net = make_decoder(latent_dim, input_dim)
+        self.q_z_x_net = Encoder(input_dim, latent_dim)
         self.logits_c = nn.Parameter(torch.ones(n_components) / n_components)
-        self.mu_z_c = nn.Parameter(torch.zeros(latent_dim, n_components))
-        self.logvar_z_c = nn.Parameter(torch.zeros(latent_dim, n_components))
+        self.mu_z_c = nn.Parameter(torch.zeros(n_components, latent_dim))
+        self.logvar_z_c = nn.Parameter(torch.zeros(n_components, latent_dim))
         nn.init.xavier_normal_(self.mu_z_c)
         nn.init.xavier_normal_(self.logvar_z_c)
         self.lr = lr
@@ -51,8 +78,7 @@ class Model(pl.LightningModule):
         log_p_x_z = (x * torch.log(mu_x) + (1 - x) * torch.log(1 - mu_x)).sum(-1).mean()
         # KL(q(z|x) || p(z))
         p_c = distributions.Categorical(logits=self.logits_c)
-        p_z_c = distributions.Independent(distributions.Normal(loc=self.mu_z_c.permute(1, 0), scale=torch.exp(0.5 *
-            self.logvar_z_c).permute(1, 0)), 1)
+        p_z_c = distributions.Independent(distributions.Normal(loc=self.mu_z_c, scale=torch.exp(0.5 * self.logvar_z_c)), 1)
         p_z = MixtureSameFamily(p_c, p_z_c)
         log_q_z_x = diagonal_mvn_log_prob(z, mu_tilde, var_tilde, self.device)
         kl = (log_q_z_x - p_z.log_prob(z)).mean()
