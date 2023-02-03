@@ -59,9 +59,9 @@ class Model(pl.LightningModule):
         self.lr = lr
 
 
-    def sample_z(self, mu, logvar):
+    def sample_z(self, mu, var):
         if self.training:
-            sd = torch.exp(logvar / 2) # Same as sqrt(exp(logvar))
+            sd = var.sqrt()
             eps = torch.randn_like(sd)
             return mu + eps * sd
         else:
@@ -71,7 +71,8 @@ class Model(pl.LightningModule):
     def forward(self, x):
         # z ~ q(z|x)
         mu_tilde, logvar_tilde = self.q_z_x_net(x)
-        z = self.sample_z(mu_tilde, logvar_tilde)
+        var_tilde = F.softplus(logvar_tilde)
+        z = self.sample_z(mu_tilde, var_tilde)
         # E_q(z,c|x)[log p(x|z)]
         mu_x = torch.sigmoid(self.p_x_z_net(z))
         log_p_x_z = (x * torch.log(mu_x) + (1 - x) * torch.log(1 - mu_x)).sum(-1).mean()
@@ -79,7 +80,7 @@ class Model(pl.LightningModule):
         p_c = distributions.Categorical(logits=self.logits_c)
         p_z_c = distributions.Independent(distributions.Normal(loc=self.mu_z_c, scale=torch.exp(0.5 * self.logvar_z_c)), 1)
         p_z = MixtureSameFamily(p_c, p_z_c)
-        log_q_z_x = diagonal_mvn_log_prob(z, mu_tilde, logvar_tilde, self.device)
+        log_q_z_x = diagonal_mvn_log_prob(z, mu_tilde, var_tilde, self.device)
         kl = (log_q_z_x - p_z.log_prob(z)).mean()
         elbo = log_p_x_z - kl
         return {
