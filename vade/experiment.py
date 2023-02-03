@@ -26,7 +26,7 @@ if __name__ == "__main__":
     parser.add_argument("--save_dpath", type=str, default="results")
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--input_dim", type=int, default=784)
-    parser.add_argument("--latent_dim", type=int, default=200)
+    parser.add_argument("--latent_dim", type=int, default=50)
     parser.add_argument("--n_components", type=int, default=40)
     parser.add_argument("--lr", type=float, default=5e-4)
     parser.add_argument("--batch_size", type=int, default=64)

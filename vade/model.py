@@ -13,14 +13,14 @@ class Encoder(nn.Module):
         super().__init__()
         self.shared_trunk = nn.Sequential(
             nn.Linear(input_dim, 512),
-            nn.LeakyReLU(inplace=True, negative_slope=.1),
+            nn.LeakyReLU(inplace=True, negative_slope=0.1),
             nn.Linear(512, 384),
-            nn.LeakyReLU(inplace=True, negative_slope=.1),
+            nn.LeakyReLU(inplace=True, negative_slope=0.1),
             nn.Dropout(p=0.1),
             nn.Linear(384, 256),
-            nn.LeakyReLU(inplace=True, negative_slope=.1),
+            nn.LeakyReLU(inplace=True, negative_slope=0.1),
             nn.Linear(256, 256),
-            nn.LeakyReLU(inplace=True, negative_slope=.1),
+            nn.LeakyReLU(inplace=True, negative_slope=0.1),
         )
         self.mu_head = nn.Linear(256, latent_dim)
         self.logvar_head = nn.Linear(256, latent_dim)
@@ -34,14 +34,14 @@ class Encoder(nn.Module):
 def make_decoder(latent_dim, input_dim):
     return nn.Sequential(
         nn.Linear(latent_dim, 256),
-        nn.LeakyReLU(inplace=True, negative_slope=.1),
+        nn.LeakyReLU(inplace=True, negative_slope=0.1),
         nn.Linear(256, 256),
-        nn.LeakyReLU(inplace=True, negative_slope=.1),
+        nn.LeakyReLU(inplace=True, negative_slope=0.1),
         nn.Linear(256, 384),
         nn.Dropout(p=0.1),
-        nn.LeakyReLU(inplace=True, negative_slope=.1),
+        nn.LeakyReLU(inplace=True, negative_slope=0.1),
         nn.Linear(384, 512),
-        nn.LeakyReLU(inplace=True, negative_slope=.1),
+        nn.LeakyReLU(inplace=True, negative_slope=0.1),
         nn.Linear(512, input_dim),
     )
 
