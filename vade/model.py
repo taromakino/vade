@@ -96,13 +96,6 @@ class Model(pl.LightningModule):
         return out["loss"]
 
 
-    def validation_step(self, batch, batch_idx):
-        x, y = batch
-        out = self.forward(x)
-        self.log("val_loss", out["loss"], on_step=False, on_epoch=True)
-        self.log("val_kl", out["kl"], on_step=False, on_epoch=True)
-
-
     def test_step(self, batch, batch_idx):
         x, y = batch
         out = self.forward(x)
